@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>水中探索コレクション スマホ対応版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1>水中探索コレクション</h1>
+        <div class="controls-list" id="controls-desc">
+            【PC】W/A/S/Dで移動、マウスで視点操作<br>
+            【スマホ】画面ボタンで移動、スワイプで視点操作
+        </div>
+        <button id="start-btn">探索を開始</button>
+    </div>
+
+    <div id="submarine-overlay"></div>
+    <div id="crosshair"></div>
+
+    <div id="hud">
+        <div id="coord-display">POS: X 0, Y 0, Z 0</div>
+        <div id="score-display">🐟 発見数: 0 / 200</div>
+        <div id="light-status">💡 LIGHT: ON</div>
+    </div>
+    
+    <div id="instructions">【Esc】マウス解除 【E】図鑑</div>
+
+    <div id="mobile-controls">
+        <div class="d-pad">
+            <div class="row"><div class="pad-btn" id="btn-up">W</div></div>
+            <div class="row">
+                <div class="pad-btn" id="btn-left">A</div>
+                <div class="pad-btn" id="btn-down">S</div>
+                <div class="pad-btn" id="btn-right">D</div>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <div class="action-btn" id="btn-ascend">↑ 上昇</div>
+                <div class="action-btn" id="btn-descend">↓ 下降</div>
+            </div>
+        </div>
+        <div class="action-pad">
+            <div class="action-btn" id="btn-record">◎ 記録する</div>
+            <div class="action-btn" id="btn-light">💡 ライト</div>
+            <div class="action-btn" id="btn-zukan">📖 図鑑</div>
+        </div>
+    </div>
+
+    <div id="message-layer">
+        <div id="discovery-message">新種発見！</div>
+        <div id="complete-message">✨ 図鑑コンプリート！ ✨<br><span style="font-size:30px; color:#fff;">水が澄み渡りました</span></div>
+    </div>
+
+    <div id="zukan-overlay">
+        <div class="zukan-header">
+            <h2>📖 海底図鑑 (200種)</h2>
+            <h3 id="zukan-progress">発見数: 0 / 200</h3>
+            <button id="close-zukan-btn" style="padding: 5px 15px; font-size: 16px; cursor:pointer;">閉じる</button>
+        </div>
+        <div class="zukan-grid" id="zukan-grid"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
