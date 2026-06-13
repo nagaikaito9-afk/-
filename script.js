@@ -25,6 +25,7 @@ const controls = new THREE.PointerLockControls(camera, document.body);
 const startScreen = document.getElementById('start-screen');
 
 startScreen.addEventListener('click', () => {
+    initAudio(); // ★ここでBGMスタート
     startScreen.style.display = 'none';
     if (!isMobile) {
         controls.lock(); // PCの場合のみマウスをロック
@@ -70,7 +71,7 @@ function createFinTexture(colorHex) {
     return new THREE.CanvasTexture(canvas);
 }
 
-// --- 4. 超リアルな魚モデル生成 ---
+// --- 4. 超リアルな魚モデル生成（パーツ離れ修正済み） ---
 function createUltraRealFish(data) {
     const fishGroup = new THREE.Group();
     const scaleTex = createScaleTexture(data.colorHex);
@@ -86,18 +87,18 @@ function createUltraRealFish(data) {
     const leftEye = new THREE.Group(); leftEye.add(new THREE.Mesh(eyeGeo, eyeMatWhite)); const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), eyeMatBlack); leftPupil.position.z = 0.1; leftEye.add(leftPupil);
     let eyeZ = data.shapeType==='lng' ? 3.0 : 1.8; let eyeX = data.shapeType==='flt' ? 0.4 : 1.1;
     
-    // 目標：位置にスケールを掛けない
+    // 位置にスケールを掛けない
     leftEye.position.set(eyeX, 0.2, eyeZ); leftEye.rotation.y = Math.PI / 6;
     const rightEye = leftEye.clone(); rightEye.position.x = -eyeX; rightEye.rotation.y = -Math.PI / 6; fishGroup.add(leftEye, rightEye);
 
     const finPlaneGeo = new THREE.PlaneGeometry(1.5, 1.5); finPlaneGeo.translate(0.75, 0.75, 0); 
     
-    // 目標：背びれ、胸びれの位置にスケールを掛けない
+    // 背びれ、胸びれの位置にスケールを掛けない
     const dorsalFin = new THREE.Mesh(finPlaneGeo, finMat); dorsalFin.position.set(0, (data.shapeType==='flt'?2.0:1.4), 0.5); dorsalFin.rotation.y = -Math.PI / 2; if(data.shapeType==='flt') dorsalFin.scale.set(1.5, 1.5, 1); fishGroup.add(dorsalFin);
     const pectoralFinL = new THREE.Mesh(finPlaneGeo, finMat); pectoralFinL.position.set(1.0, -0.5, 1.2); pectoralFinL.rotation.set(-Math.PI/4, Math.PI/4, Math.PI/4); pectoralFinL.scale.set(0.6, 0.6, 0.6);
     const pectoralFinR = pectoralFinL.clone(); pectoralFinR.position.x = -1.0; pectoralFinR.rotation.set(-Math.PI/4, -Math.PI/4, -Math.PI/4); fishGroup.add(pectoralFinL, pectoralFinR);
 
-    // 目標：しっぽの位置にスケールを掛けない
+    // しっぽの位置にスケールを掛けない
     const tailJoint = new THREE.Group(); tailJoint.position.z = (data.shapeType==='lng'?-3.5 : data.shapeType==='rnd'?-1.2 : -2.5);
     const tailGeo = new THREE.PlaneGeometry(2, 2); tailGeo.translate(0, 1, 0); const tail = new THREE.Mesh(tailGeo, finMat); tail.rotation.y = -Math.PI / 2; tail.rotation.z = -Math.PI / 4; tail.position.z = -0.5; tailJoint.add(tail); fishGroup.add(tailJoint);
 
@@ -217,6 +218,7 @@ allData.forEach(data => {
 });
 
 function activateCompleteMode() {
+    playCompleteSound(); // ★コンプリート音を鳴らす
     document.getElementById('complete-message').classList.add("show"); 
     scene.fog.density = 0; ambientLight.intensity = 2.0; headLight.intensity = 1000; scene.background = new THREE.Color(0x88ccff);
 }
@@ -228,10 +230,13 @@ function recordDiscovery(objectGroup) {
     document.getElementById('score-display').innerText = `🐟 発見数: ${foundCount} / 200`; document.getElementById('zukan-progress').innerText = `発見数: ${foundCount} / 200`;
     const div = document.getElementById(`zukan-item-${id}`); div.className = 'zukan-item discovered'; div.querySelector('img').style.opacity = '1'; div.querySelector('img').style.filter = 'none'; div.querySelector('.name').innerText = data.name; 
     const msg = document.getElementById("discovery-message"); msg.innerText = `${data.name} を記録！`; msg.classList.add("show"); setTimeout(() => msg.classList.remove("show"), 2000);
+    
+    playDiscoverSound(); // ★発見音を鳴らす
+    
     if (foundCount >= 200) activateCompleteMode();
 }
 
-// 【新機能】隠しコマンド実行関数
+// 隠しコマンド実行関数
 function executeCheatCode() {
     if (foundCount >= 200) return;
     allData.forEach(data => {
@@ -252,7 +257,6 @@ let cheatBuffer = "";
 
 // [PC] キーボード操作と隠しコマンド
 document.addEventListener('keydown', (e) => {
-    // 隠しコマンド判定
     if (e.key && e.key.length === 1) {
         cheatBuffer += e.key; if (cheatBuffer.length > 10) cheatBuffer = cheatBuffer.slice(-10);
         if (cheatBuffer === "hatosabure") { cheatBuffer = ""; executeCheatCode(); }
@@ -336,14 +340,13 @@ document.addEventListener('touchmove', (e) => {
 
 window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 
-// --- 7. メインループ（バグ修正・速度2倍） ---
+// --- 7. メインループ ---
 function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta(); const time = clock.getElapsedTime();
     
     if (controls.isLocked || (isMobile && document.getElementById('start-screen').style.display === 'none' && !zukanOpen)) {
         
-        // 【修正】慣性（減衰）の計算を維持するため、velocityを初期化せずに引き継ぐ
         velocity.x -= velocity.x * 4.0 * delta; 
         velocity.z -= velocity.z * 4.0 * delta; 
         velocity.y -= velocity.y * 4.0 * delta;
@@ -353,14 +356,12 @@ function animate() {
         direction.y = Number(keys.space) - Number(keys.shift); 
         direction.normalize(); 
         
-        // 【移動速度を2倍にアップ！】 (旧100.0 -> 新200.0)
         const speedMulti = 200.0; 
         
         if (keys.w || keys.s) velocity.z -= direction.z * speedMulti * delta; 
         if (keys.a || keys.d) velocity.x -= direction.x * speedMulti * delta; 
         if (keys.space || keys.shift) velocity.y += direction.y * speedMulti * delta;
         
-        // カメラの移動を適用
         controls.moveRight(-velocity.x * delta); 
         controls.moveForward(-velocity.z * delta); 
         camera.position.y += velocity.y * delta;
@@ -414,3 +415,84 @@ function animate() {
     renderer.render(scene, camera);
 }
 animate();
+
+// --- 8. サウンドシステム（Web Audio APIによる自動生成） ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+
+function initAudio() {
+    if(audioCtx) return; // 既に初期化されていたら何もしない
+    audioCtx = new AudioContext();
+
+    // --- BGM: 深海を思わせる低音のアンビエントドローン ---
+    const bgmOsc = audioCtx.createOscillator();
+    bgmOsc.type = 'sine';
+    bgmOsc.frequency.value = 110; // 低い「ラ」の音
+    
+    // 音をゆっくり揺らす（水流の表現）
+    const lfo = audioCtx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.1; // 10秒周期
+    const lfoGain = audioCtx.createGain();
+    lfoGain.gain.value = 10;
+    lfo.connect(lfoGain);
+    lfoGain.connect(bgmOsc.frequency);
+    
+    const bgmGain = audioCtx.createGain();
+    bgmGain.gain.value = 0.3; // BGMの音量
+    
+    bgmOsc.connect(bgmGain);
+    bgmGain.connect(audioCtx.destination);
+    
+    bgmOsc.start();
+    lfo.start();
+}
+
+// --- 効果音: 発見時（ピロリン♪） ---
+function playDiscoverSound() {
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    
+    // 高音のアルペジオ（和音の分散）
+    osc.frequency.setValueAtTime(880, t);             // A5
+    osc.frequency.setValueAtTime(1108.73, t + 0.08);  // C#6
+    osc.frequency.setValueAtTime(1318.51, t + 0.16);  // E6
+    
+    // 音の減衰（フェードアウト）
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.4, t + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.5);
+}
+
+// --- 効果音: コンプリート時（ファンファーレ風の和音） ---
+function playCompleteSound() {
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const chords = [523.25, 659.25, 783.99, 1046.50]; // C Major和音
+    
+    chords.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        
+        // 少しずつズラして音を重ねる
+        const startTime = t + (i * 0.1);
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 3.0);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(startTime);
+        osc.stop(t + 3.0);
+    });
+}
